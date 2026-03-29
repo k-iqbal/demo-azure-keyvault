@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="b2e44d53-af07-4c6e-a52c-d52a03eea7af" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_config" doc:name="HTTP Request config" doc:id="aed3d709-dfea-4b7c-a00d-66bd4e19bcb1" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="42bb621f-2577-480e-b972-fbd7d84e9ee0" file="config\application-config.yaml" key="mulesoft12345678" />
+	<flow name="demo-keyvaultFlow" doc:id="9e29b31c-93e1-4581-9bf2-c0624047fcef" >
+		<http:listener doc:name="Listener" doc:id="081abbcc-f043-4ea3-9b11-77e3cd253496" config-ref="HTTP_Listener_config" path="/keyvault"/>
+		<set-variable value="${secure::azure.client_id}" doc:name="azure.client_id" doc:id="bf57017f-d48a-463a-ad75-74508b1762aa" variableName="client_id"/>
+		<set-variable value="${secure::azure.client_secret}" doc:name="azure.client_secret" doc:id="5ea90fc7-e027-4cd7-9dc9-11d2501e4f63" variableName="client_secret"/>
+		<ee:transform doc:name="Prepare GetToken Input param" doc:id="df7f5a11-1615-49f2-8343-38fafb96b9e6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+write({
+	"grant_type": "client_credentials",
+	"client_id": vars.client_id,
+	"client_secret" : vars.client_secret,
+	"resource" : "https://vault.azure.net/"
+},'application/x-www-form-urlencoded')]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="155c610e-4607-44a2-b985-eefcf4575384" message="#[payload]"/>
+		<http:request doc:name="Get Token From Azure" doc:id="4d1ab0dc-0b3f-4f50-9ae5-ea8bc75fd972" config-ref="HTTP_Request_config" url='#["https://login.microsoftonline.com/d59c54a7-3992-4377-8ae9-73327fab9839/oauth2/token"]' method="POST">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+		<set-variable value="#[payload.access_token]" doc:name="TOKEN" doc:id="da040d12-84e2-4278-9612-4fd356428065" variableName="token"/>
+		<logger level="INFO" doc:name="TOKEN Logger" doc:id="01956ce1-8a72-43f2-9178-08ae8d41a698" message="#[vars.token]"/>
+		<http:request doc:name="Request" doc:id="f0b4b83b-9d95-4b69-8fe3-38217842ea40" config-ref="HTTP_Request_config" url="https://frm-mulesoft-keyvlt-d4.vault.azure.net/secrets/frm-mulesoft-keyvault-secret2?api-version=7.6">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token ,
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="eef9b360-1530-4619-8bf8-8afdb72c7f1a" message="#[payload]"/>
+		<set-variable value="#[payload.value]" doc:name="Key Secret Value" doc:id="fbddd05b-dcfc-4b68-b4b3-f3b36d523489" variableName="secretValue"/>
+		<logger level="INFO" doc:name="Key value printing" doc:id="d0ecccbd-1e44-43b5-ae97-5698a76ef52b" message='#["azure keyvault secret value is : " ++ vars.secretValue]'/>
+	</flow>
+</mule>
