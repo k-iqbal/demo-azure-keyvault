@@ -1,0 +1,3 @@
+azure:
+  resource: "https://vault.azure.net/"
+  grant_type: "client_credentials"

@@ -1,46 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
 	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="b2e44d53-af07-4c6e-a52c-d52a03eea7af" >
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
 	<http:request-config name="HTTP_Request_config" doc:name="HTTP Request config" doc:id="aed3d709-dfea-4b7c-a00d-66bd4e19bcb1" />
 	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="42bb621f-2577-480e-b972-fbd7d84e9ee0" file="config\application-config.yaml" key="mulesoft12345678" />
-	<flow name="demo-keyvaultFlow" doc:id="9e29b31c-93e1-4581-9bf2-c0624047fcef" >
-		<http:listener doc:name="Listener" doc:id="081abbcc-f043-4ea3-9b11-77e3cd253496" config-ref="HTTP_Listener_config" path="/keyvault"/>
-		<set-variable value="${secure::azure.client_id}" doc:name="azure.client_id" doc:id="bf57017f-d48a-463a-ad75-74508b1762aa" variableName="client_id"/>
-		<set-variable value="${secure::azure.client_secret}" doc:name="azure.client_secret" doc:id="5ea90fc7-e027-4cd7-9dc9-11d2501e4f63" variableName="client_secret"/>
-		<ee:transform doc:name="Prepare GetToken Input param" doc:id="df7f5a11-1615-49f2-8343-38fafb96b9e6" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/java
----
-write({
-	"grant_type": "client_credentials",
-	"client_id": vars.client_id,
-	"client_secret" : vars.client_secret,
-	"resource" : "https://vault.azure.net/"
-},'application/x-www-form-urlencoded')]]></ee:set-payload>
-			</ee:message>
-			<ee:variables >
-			</ee:variables>
-		</ee:transform>
-		<logger level="INFO" doc:name="Logger" doc:id="155c610e-4607-44a2-b985-eefcf4575384" message="#[payload]"/>
-		<http:request doc:name="Get Token From Azure" doc:id="4d1ab0dc-0b3f-4f50-9ae5-ea8bc75fd972" config-ref="HTTP_Request_config" url='#["https://login.microsoftonline.com/d59c54a7-3992-4377-8ae9-73327fab9839/oauth2/token"]' method="POST">
-			<http:headers ><![CDATA[#[output application/java
----
-{
-	"Content-Type" : "application/x-www-form-urlencoded"
-}]]]></http:headers>
-		</http:request>
-		<set-variable value="#[payload.access_token]" doc:name="TOKEN" doc:id="da040d12-84e2-4278-9612-4fd356428065" variableName="token"/>
-		<logger level="INFO" doc:name="TOKEN Logger" doc:id="01956ce1-8a72-43f2-9178-08ae8d41a698" message="#[vars.token]"/>
-		<http:request doc:name="Request" doc:id="f0b4b83b-9d95-4b69-8fe3-38217842ea40" config-ref="HTTP_Request_config" url="https://frm-mulesoft-keyvlt-d4.vault.azure.net/secrets/frm-mulesoft-keyvault-secret2?api-version=7.6">
+	<configuration-properties doc:name="Configuration properties" doc:id="58846276-8026-4d87-b880-82ea6f4d8872" file="config\common-config.yaml" />
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="70a3e4eb-177f-4d68-846d-a475edc74745" config-ref="ObjectStore_Config"/>
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="31cc5830-0eb1-4a6f-999a-6d2cf99486b6" />
+	<flow name="demo-keyvault-getSecret" doc:id="9e29b31c-93e1-4581-9bf2-c0624047fcef" >
+		<http:listener doc:name="Listener" doc:id="081abbcc-f043-4ea3-9b11-77e3cd253496" config-ref="HTTP_Listener_config" path="/secret"/>
+		<flow-ref doc:name="get Token" doc:id="965f9022-06bc-4669-9f77-81ada09fed9c" name="demo-keyvault-getToken"/>
+		<http:request doc:name="get Secret" doc:id="f0b4b83b-9d95-4b69-8fe3-38217842ea40" config-ref="HTTP_Request_config" url="https://frm-mulesoft-keyvlt-d4.vault.azure.net/secrets/frm-mulesoft-keyvault-secret2?api-version=7.6">
 			<http:headers ><![CDATA[#[output application/java
 ---
 {
@@ -51,5 +29,77 @@ write({
 		<logger level="INFO" doc:name="Logger" doc:id="eef9b360-1530-4619-8bf8-8afdb72c7f1a" message="#[payload]"/>
 		<set-variable value="#[payload.value]" doc:name="Key Secret Value" doc:id="fbddd05b-dcfc-4b68-b4b3-f3b36d523489" variableName="secretValue"/>
 		<logger level="INFO" doc:name="Key value printing" doc:id="d0ecccbd-1e44-43b5-ae97-5698a76ef52b" message='#["azure keyvault secret value is : " ++ vars.secretValue]'/>
+	</flow>
+	<sub-flow name="demo_keyvault-setConfigurationVariables" doc:id="239477a1-e431-4907-8c59-a0b82a0095d6" >
+		<set-variable value="${secure::azure.client_id}" doc:name="azure.client_id" doc:id="bf57017f-d48a-463a-ad75-74508b1762aa" variableName="client_id" />
+		<set-variable value="${secure::azure.client_secret}" doc:name="azure.client_secret" doc:id="5ea90fc7-e027-4cd7-9dc9-11d2501e4f63" variableName="client_secret" />
+		<set-variable value="${azure.grant_type}" doc:name="Get Grant Type" doc:id="5a1085fa-ecdb-4e5c-907f-32f347d2010d" variableName="grant_type" />
+		<set-variable value="${azure.resource}" doc:name="Set Resource" doc:id="ce4f8aad-7dbb-470c-9a28-371358bdc54c" variableName="resource" />
+	</sub-flow>
+	<sub-flow name="demo-keyvault-getToken" doc:id="0f44046b-cb22-42e7-ae15-6880c5923a41" >
+		<set-variable value="" doc:name="Set Token Var" doc:id="9d9aadb9-b8f3-4f12-aba5-e5fa0f2374a2" variableName="token"/>
+		<os:retrieve doc:name="Retrieve" doc:id="52ab8537-01b9-47f2-bfc7-3923d92a3fe5" key="token" objectStore="Object_store" target="token">
+			<os:default-value ><![CDATA[no]]></os:default-value>
+		</os:retrieve>
+		<choice doc:name="Choice" doc:id="fb0c2ae8-fffb-4870-876d-f88e0a69a8cb" >
+			<when expression="#[vars.token=='no']">
+				<logger level="INFO" doc:name="Token is new" doc:id="155c610e-4607-44a2-b985-eefcf4575384" message="Token is new - storing into object store " />
+				<flow-ref doc:name="set configuration variables" doc:id="411d5c8e-c3a7-4e10-8e91-76ddca465402" name="demo_keyvault-setConfigurationVariables" />
+				<ee:transform doc:name="Prepare GetToken Input param" doc:id="df7f5a11-1615-49f2-8343-38fafb96b9e6">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+write({
+	"grant_type": vars.grant_type,
+	"client_id": vars.client_id,
+	"client_secret": vars.client_secret,
+	"resource": vars.resource
+},'application/x-www-form-urlencoded')]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+			</ee:variables>
+		</ee:transform>
+				<http:request doc:name="Get Token From Azure" doc:id="4d1ab0dc-0b3f-4f50-9ae5-ea8bc75fd972" config-ref="HTTP_Request_config" url='#["https://login.microsoftonline.com/d59c54a7-3992-4377-8ae9-73327fab9839/oauth2/token"]' method="POST">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+				<os:store doc:name="Store" doc:id="ff8ba4e5-37ed-4ab8-90e5-f4c76b429c76" key="token">
+					<os:value ><![CDATA[#[payload.access_token]]]></os:value>
+				</os:store>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Token exist" doc:id="c4c2839a-70ce-4e2c-a07a-62924819fe02" message="Token exist"/>
+			</otherwise>
+		</choice>
+		<set-variable value="#[payload.access_token]" doc:name="Set Token Var" doc:id="0bd3f7c2-7b34-4672-9ac4-b2be9cad992b" variableName="token"/>
+		<logger level="INFO" doc:name="TOKEN Logger" doc:id="01956ce1-8a72-43f2-9178-08ae8d41a698" message="#[vars.token]" />
+	</sub-flow>
+	<flow name="demo-keyvault-getSecrets" doc:id="2be6188d-b2b5-455a-9df6-8a28ed299318" >
+		<http:listener doc:name="Listener" doc:id="3abf4166-c442-4b4b-86ba-df987ee95679" config-ref="HTTP_Listener_config" path="/secrets"/>
+		<flow-ref doc:name="get Token" doc:id="95ad9d06-70d9-4ac3-be85-18ccf927b593" name="demo-keyvault-getToken" />
+		<http:request doc:name="get Secrets" doc:id="aa4ac43d-0ca3-4b8f-8ea2-1b9978e5ca19" config-ref="HTTP_Request_config" url="https://frm-mulesoft-keyvlt-d4.vault.azure.net/secrets?maxresult=25&amp;api-version=7.6" >
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token ,
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+		</http:request>
+		<foreach doc:name="For Each" doc:id="1cd941e1-0cbe-4fb8-be62-c366b622749c" collection="#[payload.value]">
+			<set-variable value="#[payload.id]" doc:name="keySecretURL" doc:id="43ac76f2-b18c-4a33-9989-93e303756d45" variableName="keySecretURL"/>
+			<http:request doc:name="get Secret" doc:id="d958e2e9-175c-43bd-82fa-fd2196c06738" config-ref="HTTP_Request_config" url='#[vars.keySecretURL ++ "?api-version=7.6"]' >
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token ,
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+			</http:request>
+			<logger level="INFO" doc:name="Logger" doc:id="791489cf-a440-4b05-b263-99442c6cb4b7" message='#["keyvault password :::::: " ++ payload.value]' />
+		</foreach>
 	</flow>
 </mule>
